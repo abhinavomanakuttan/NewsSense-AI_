@@ -124,3 +124,43 @@ def fetch_newsapi(self, query: str = "latest", page_size: int = 50):
     entries = asyncio.run(client.fetch_news_api(endpoint="https://newsapi.org/v2/top-headlines", query=query, page_size=page_size))
     return {"status": "success", "fetched": len(entries), "query": query}
 
+
+
+@celery_app.task(bind=True)
+def detect_breaking_news(self):
+    """Detect breaking news velocity spikes and flag events.
+
+    Runs every 5 minutes via Celery Beat.
+    In production: pushes WebSocket notifications to connected clients.
+    """
+    try:
+        result = asyncio.run(_detect_breaking_async())
+        logger.info(f"Breaking news detection: {result}")
+        return result
+    except Exception as exc:
+        logger.error(f"detect_breaking_news failed: {exc}")
+        return {"status": "error", "error": str(exc)}
+
+
+async def _detect_breaking_async() -> dict:
+    from app.services.breaking_news_service import BreakingNewsService
+    async with async_session_factory() as session:
+        svc = BreakingNewsService(session)
+        kerala_count = await svc.count_breaking(region="KERALA")
+        india_count = await svc.count_breaking(region="INDIA")
+        global_count = await svc.count_breaking(region="GLOBAL")
+        velocity_events = await svc.detect_velocity_events()
+
+    result = {
+        "status": "ok",
+        "breaking_kerala": kerala_count,
+        "breaking_india": india_count,
+        "breaking_global": global_count,
+        "velocity_events": len(velocity_events),
+        "velocity_event_ids": [e["id"] for e in velocity_events[:5]],
+    }
+
+    if velocity_events:
+        logger.info(f"VELOCITY SPIKE detected: {len(velocity_events)} events gaining rapid coverage")
+
+    return result

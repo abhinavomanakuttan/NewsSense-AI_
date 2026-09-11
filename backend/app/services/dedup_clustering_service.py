@@ -13,6 +13,8 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
+
+from app.ai.importance_scorer import get_importance_scorer
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -314,7 +316,15 @@ class DedupClusteringService:
             article_count="1",
             source_count=1,
             independent_source_count=1.0,
-            importance_score=article.credibility_score or 0.5,
+            importance_score=get_importance_scorer().score(
+                source_reliability=getattr(article, "credibility_score", None) or 0.5,
+                source_priority=getattr(article.source, "priority", "normal") if hasattr(article, "source") and article.source else "normal",
+                category=article.category_name,
+                region=getattr(article, "region", "GLOBAL") or "GLOBAL",
+                independent_source_count=1,
+                article_count=1,
+                published_at=article.published_at,
+            ),
             embedding=json.dumps(embedding) if embedding else None,
             status="active",
             timeline=json.dumps(timeline_list),

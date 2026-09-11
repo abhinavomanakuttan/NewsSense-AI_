@@ -29,6 +29,7 @@ class RedisStreamProducer:
     def __init__(self, redis_url: str | None = None):
         self.redis_url = redis_url or settings.redis_url
         self._redis: aioredis.Redis | None = None
+        self._is_available: bool = True
 
     async def _get_client(self) -> aioredis.Redis:
         if self._redis is None:
@@ -40,6 +41,9 @@ class RedisStreamProducer:
 
         Returns stream message ID or None on failure.
         """
+        if not self._is_available:
+            return None
+
         try:
             client = await self._get_client()
 
@@ -83,12 +87,15 @@ class RedisStreamProducer:
             return message_id
 
         except Exception as exc:
-            logger.error(f"Failed to publish article event to Redis Stream: {exc}")
-            await self.publish_to_dlq(article_data, error=str(exc))
+            self._is_available = False
+            logger.warning(f"Redis Stream unavailable ({exc}). Proceeding without stream publishing.")
             return None
 
     async def publish_to_dlq(self, payload: dict, error: str) -> str | None:
         """Publish failed events to Dead Letter Queue stream (`stream:news:dlq`)."""
+        if not self._is_available:
+            return None
+
         try:
             client = await self._get_client()
             dlq_entry = {
@@ -100,7 +107,8 @@ class RedisStreamProducer:
             logger.warning(f"Routed failed ingestion payload to DLQ {STREAM_NEWS_DLQ} (msg_id={message_id})")
             return message_id
         except Exception as dlq_exc:
-            logger.critical(f"Critical failure writing to DLQ: {dlq_exc}")
+            self._is_available = False
+            logger.debug(f"Redis DLQ unavailable: {dlq_exc}")
             return None
 
     async def close(self) -> None:

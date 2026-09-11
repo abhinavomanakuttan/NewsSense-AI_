@@ -15,8 +15,10 @@ class Source(Base, TimestampMixin, UUIDMixin):
     language = Column(String(10), default="en", nullable=False)
     country = Column(String(5), nullable=True)
     category = Column(String(50), nullable=True)
+    region = Column(String(20), nullable=True, index=True)  # KERALA | INDIA | GLOBAL
     is_active = Column(Boolean, default=True, nullable=False)
     reliability_score = Column(Float, default=0.5, nullable=False)
+    reputation_score = Column(Float, default=0.5, nullable=True)
     fetch_interval_minutes = Column(Integer, default=15, nullable=False)
     rate_limit = Column(Integer, default=60, nullable=False)  # requests per hour
     priority = Column(String(20), default="normal", nullable=False)  # high, normal, low
@@ -53,13 +55,4 @@ class Source(Base, TimestampMixin, UUIDMixin):
     @last_fetched.setter
     def last_fetched(self, value):
         self.last_fetched_at = value
-
-    # Backward compatibility alias
-    @property
-    def reputation_score(self):
-        return self.reliability_score
-
-    @reputation_score.setter
-    def reputation_score(self, value):
-        self.reliability_score = value
 

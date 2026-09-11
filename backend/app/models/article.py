@@ -49,6 +49,12 @@ class Article(Base, TimestampMixin, UUIDMixin):
     author = Column(String(255), nullable=True)
     published_at = Column(String(50), nullable=True)
     language = Column(String(10), default="en", nullable=False)
+    # Regional classification (Kerala/India/Global intelligence)
+    region = Column(String(20), nullable=True, index=True)    # KERALA | INDIA | GLOBAL
+    state = Column(String(100), nullable=True, index=True)    # e.g. Kerala, Maharashtra
+    district = Column(String(100), nullable=True, index=True) # e.g. Ernakulam, Kozhikode
+    city = Column(String(100), nullable=True)
+    locality = Column(String(100), nullable=True)
     sentiment = Column(String(20), nullable=True)
     sentiment_score = Column(Float, nullable=True)
     keywords = Column(Text, nullable=True)

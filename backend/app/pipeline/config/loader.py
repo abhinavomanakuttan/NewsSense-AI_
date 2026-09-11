@@ -34,6 +34,10 @@ CATEGORIES: list[str] = [
     "world_news",
     "environment",
     "health",
+    # Primary India/Kerala categories
+    "india",
+    "kerala",
+    "government_india",
 ]
 
 _SOURCES_YAML = Path(__file__).parent / "sources.yaml"
@@ -52,6 +56,7 @@ class SourceDefinition:
     source_type: str = "rss"
     language: str = "en"
     country: str = ""
+    region: str = "GLOBAL"  # KERALA | INDIA | GLOBAL
     priority: str = "normal"
     reliability_score: float = 0.5
     rate_limit: int = 60
@@ -75,6 +80,7 @@ class SourceDefinition:
             "language": self.language,
             "country": self.country,
             "category": self.category,
+            "region": self.region,
             "is_active": self.active,
             "reliability_score": self.reliability_score,
             "rate_limit": self.rate_limit,
@@ -126,6 +132,16 @@ class SourceConfigLoader:
 
     def _parse_source(self, category: str, entry: dict[str, Any]) -> SourceDefinition:
         merged = {**self._defaults, **entry}
+        # Derive default region from category if not explicitly set
+        _cat = category.lower()
+        if merged.get("region"):
+            derived_region = str(merged["region"]).upper()
+        elif _cat in ("kerala",):
+            derived_region = "KERALA"
+        elif _cat in ("india", "government_india"):
+            derived_region = "INDIA"
+        else:
+            derived_region = "GLOBAL"
         return SourceDefinition(
             category=category,
             name=merged.get("name", ""),
@@ -136,6 +152,7 @@ class SourceConfigLoader:
             source_type=merged.get("source_type", "rss"),
             language=merged.get("language", "en"),
             country=merged.get("country", ""),
+            region=derived_region,
             priority=merged.get("priority", "normal"),
             reliability_score=float(merged.get("reliability_score", 0.5)),
             rate_limit=int(merged.get("rate_limit", 60)),

@@ -48,10 +48,22 @@ class SourceResponse(BaseModel):
             d["active"] = getattr(value, "is_active", getattr(value, "active", True))
             d["last_fetched"] = getattr(value, "last_fetched_at", getattr(value, "last_fetched", None))
             d["reputation_score"] = getattr(value, "reliability_score", getattr(value, "reputation_score", 0.5))
-            # Populate required fields that might be missing
+            # Populate required fields that might be missing or None
             for field in ("name", "url", "source_type"):
-                if field not in d:
-                    d[field] = getattr(value, field, "")
+                if field not in d or d[field] is None:
+                    d[field] = getattr(value, field, "") or ""
+            if d.get("rate_limit") is None:
+                d["rate_limit"] = 60
+            if d.get("priority") is None:
+                d["priority"] = "normal"
+            if d.get("consecutive_failures") is None:
+                d["consecutive_failures"] = 0
+            if d.get("fetch_interval_minutes") is None:
+                d["fetch_interval_minutes"] = 15
+            if d.get("reliability_score") is None:
+                d["reliability_score"] = 0.5
+            if d.get("region") is None:
+                d["region"] = "GLOBAL"
             return d
         if isinstance(value, dict):
             value["source_id"] = value.get("source_id") or value.get("id")

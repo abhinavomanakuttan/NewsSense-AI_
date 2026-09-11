@@ -13,6 +13,9 @@ summarization, embeddings) on newly ingested articles.
 
 import asyncio
 import sys
+
+sys.path.insert(0, ".")
+
 from uuid import UUID
 
 from sqlalchemy import select

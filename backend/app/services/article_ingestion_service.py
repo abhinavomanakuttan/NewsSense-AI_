@@ -32,6 +32,14 @@ from app.utils.text_utils import slugify
 
 logger = logging.getLogger(__name__)
 
+# Module-level Kerala classifier — instantiated once, reused across calls
+try:
+    from app.ai.kerala_classifier import KeralaClassifier
+    _kerala_clf = KeralaClassifier()
+except Exception:
+    _kerala_clf = None
+    logger.warning("KeralaClassifier could not be loaded — region enrichment will use source defaults only")
+
 
 class ArticleIngestionService:
     """Coordinates fetching, cleaning, canonical normalization, persistence, and event queue streaming."""
@@ -240,6 +248,29 @@ class ArticleIngestionService:
             country=source.country,
             raw_metadata=raw_meta,
         )
+
+        # --- Regional classification ---
+        # Step 1: Use source.region as the starting point (set from sources.yaml)
+        source_region = getattr(source, "region", None) or "GLOBAL"
+        article.region = source_region
+
+        # Step 2: Run KeralaClassifier to refine region + extract district/city
+        if _kerala_clf is not None:
+            try:
+                clf_result = _kerala_clf.classify(
+                    title=entry.title or "",
+                    content=cleaned_content or cleaned_summary or "",
+                    source_region=source_region,
+                )
+                article.region = clf_result.region
+                article.state = clf_result.state
+                article.district = clf_result.district
+                article.city = clf_result.city
+                article.locality = clf_result.locality
+            except Exception as clf_exc:
+                logger.debug(f"KeralaClassifier failed for '{entry.title}': {clf_exc}")
+                # Keep source_region as fallback
+
 
         if entry.tags:
             await self.session.refresh(article, attribute_names=["tags"])
